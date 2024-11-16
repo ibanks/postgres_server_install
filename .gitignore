@@ -1,0 +1,5 @@
+vault/*
+.vault_pass
+inventory
+*.json
+*.log

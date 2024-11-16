@@ -1,0 +1,89 @@
+---
+
+- name: Install postgres database server
+  hosts: all
+  become: yes
+  vars_files:
+    - vault/vault.yml
+  tasks:
+    - name: create gnuhealth user
+      user:
+        name: {gnuhealth_username}
+        password: {gnuhealth_user_password}
+        state: present
+
+    - name: pull the latest updates
+      dnf:
+        name: "*"
+        state: latest
+
+    - name: install yum repository
+      dnf:
+        name: 'https://download.postgresql.org/pub/repos/yum/reporpms/EL-8-x86_64/pgdg-redhat-repo-latest.noarch.rpm'
+        state: present
+
+    - name: disable any pre-existing postgresql repo
+      dnf:
+        disablerepo: postgresql
+
+    - name: install postgresql13 server
+      dnf:
+        name: postgresql13-server
+        state: latest
+
+    - name: install postgresql13 client
+      dnf:
+        name: postgresql13
+        state: latest
+
+    - name: initialize the postgresql database
+      command: /usr/pgsql-13/bin/postgresql-13-setup initdb
+      notify:
+        - start postgres service
+
+    - name: ensure postgres service is running
+      systemd:
+        name: postgresql-13
+        state: started
+
+    - name: update the postgressql admin user password
+      become_user: postgres
+      command: psql -c "alter user postgres with password '{postgres_user_password}'"
+
+    - name: set the listen address on the server
+      become_user: postgres
+      lineinfile:
+        path: /var/lib/pgsql/13/data/postgresql.conf
+        regexp: '^listen_addresses'
+        line: 'listen_addresses = "*"'
+
+    - name: allow remote connections
+      become_user: postgres
+      postgresql_pg_hba:
+        dest: /var/lib/postgres/data/pg_hba.conf
+        backup: yes
+        group: postgres
+        owner: postgres
+        address: samenet
+        method: peer
+
+    - name: give permissions to gnuhealth user
+      command: postgres -c "createuser --createdb --no-createrole --no-superuser gnuhealth"
+
+    - name: restart postgressql service
+      systemd:
+        name: postgresql-13
+        state: restarted
+
+    - name: ensure postgres service is running
+      systemd:
+        name: postgresql-13
+        state: started
+
+
+  handlers:
+    - name: start postgres service
+      systemd:
+        name: postgresql-13
+        enabled: yes
+        state: started
