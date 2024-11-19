@@ -1,2 +1,4 @@
 openssh-clients
 sshpass
+python3.10
+python3.10-pip

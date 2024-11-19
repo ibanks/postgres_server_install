@@ -1,0 +1,106 @@
+---
+
+- name: Install postgres database server
+  hosts: all
+  become: true
+  vars_files:
+    - vault/vault.yml
+  tasks:
+
+    - name: install acl tool
+      apt:
+        name: acl
+        state: latest
+        install_recommends: yes
+
+    - name: create gnuhealth user
+      user:
+        name: "{{ gnuhealth_username }}"
+        password: "{{ gnuhealth_user_password | password_hash('sha512', 'ckiPcsI') }}"
+        state: present
+
+    - name: update all packages to the latest version
+      apt:
+        upgrade: dist 
+
+    - name: import the postgresql gpg key
+      apt_key:
+        url: https://www.postgresql.org/media/keys/ACCC4CF8.asc
+        state: present
+
+    - name: get the lsb release
+      command: lsb_release -cs
+      register: os_release_version
+
+    - name: add the repository
+      shell: >
+        echo "deb http://apt.postgresql.org/pub/repos/apt/ {{ os_release_version.stdout }}-pgdg main"
+        > /etc/apt/sources.list.d/pgdg.list
+
+    - name: update the repo packages
+      apt:
+        update_cache: yes
+
+    - name: install postgresql packages
+      apt:
+        name: "{{ packages }}"
+        state: latest
+        install_recommends: yes
+      vars:
+        packages:
+        - postgresql-13
+        - postgresql-client-13
+      notify:
+        - start postgres service
+
+    - name: ensure postgres service is running
+      systemd:
+        name: postgresql
+        state: started
+
+    - name: enable postgres service
+      systemd:
+        name: postgresql
+        enabled: true
+        masked: no
+
+    - name: update the postgressql admin user password
+      become_user: postgres
+      command: psql -c "alter user postgres with password '{{ postgres_user_password }}'"
+
+    - name: set the listen address on the server
+      become_user: postgres
+      lineinfile:
+        path: /etc/postgresql/13/main/postgresql.conf
+        regexp: '^listen_addresses'
+        line: 'listen_addresses = "*"'
+
+    - name: allow remote connections
+      become_user: postgres
+      community.postgresql.postgresql_pg_hba:
+        dest: /etc/postgresql/13/main/pg_hba.conf
+        backup: yes
+        group: postgres
+        owner: postgres
+        address: samenet
+        method: peer
+
+    - name: give permissions to gnuhealth user
+      command: postgres -c "createuser --createdb --no-createrole --no-superuser gnuhealth"
+
+    - name: restart postgressql service
+      systemd:
+        name: postgresql
+        state: restarted
+
+    - name: ensure postgres service is running
+      systemd:
+        name: postgresql
+        state: started
+
+  handlers:
+    - name: start postgres service
+      systemd:
+        name: postgresql-13
+        enabled: yes
+        state: started

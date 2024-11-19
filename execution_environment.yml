@@ -17,6 +17,7 @@ dependencies:
   galaxy:
     collections:
     - name: community.postgresql
+    - name: community.general
 
 options:
   package_manager_path: /usr/bin/microdnf

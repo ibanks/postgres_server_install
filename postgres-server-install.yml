@@ -8,35 +8,101 @@
   tasks:
     - name: create gnuhealth user
       user:
-        name: {gnuhealth_username}
-        password: {gnuhealth_user_password}
+        name: "{{ gnuhealth_username }}"
+        password: "{{ gnuhealth_user_password | password_hash('sha512', 'ckiPcsI') }}"
         state: present
 
-    - name: pull the latest updates
-      dnf:
-        name: "*"
-        state: latest
+#    - name: pull the latest updates
+#      dnf:
+#        name: "*"
+#        state: latest 
 
-    - name: install yum repository
+#    - name: install yum repository
+#      dnf:
+#        name: 'https://download.postgresql.org/pub/repos/yum/reporpms/EL-8-x86_64/pgdg-redhat-repo-latest.noarch.rpm'
+#        state: present
+#        disable_gpg_check: true
+#
+#    - name: disable any pre-existing postgresql repo
+#      dnf:
+#        disablerepo: postgresql
+#
+    - name: install postgresql13-client
       dnf:
-        name: 'https://download.postgresql.org/pub/repos/yum/reporpms/EL-8-x86_64/pgdg-redhat-repo-latest.noarch.rpm'
+        name: https://download.postgresql.org/pub/repos/yum/13/redhat/rhel-8-x86_64/postgresql13-13.2-1PGDG.rhel8.x86_64.rpm
         state: present
+        disable_gpg_check: true
 
-    - name: disable any pre-existing postgresql repo
+    - name: install postgresql13-server
       dnf:
-        disablerepo: postgresql
+        name: https://download.postgresql.org/pub/repos/yum/13/redhat/rhel-8-x86_64/postgresql13-server-13.2-1PGDG.rhel8.x86_64.rpm
+        state: present
+        disable_gpg_check: true
 
-    - name: install postgresql13 server
+    - name: install postgresql13-libs
       dnf:
-        name: postgresql13-server
-        state: latest
+        name: https://download.postgresql.org/pub/repos/yum/13/redhat/rhel-8-x86_64/postgresql13-libs-13.2-1PGDG.rhel8.x86_64.rpm 
+        state: present
+        disable_gpg_check: true
 
-    - name: install postgresql13 client
+    - name: install postgresql13-contrib
       dnf:
-        name: postgresql13
-        state: latest
+        name: https://download.postgresql.org/pub/repos/yum/13/redhat/rhel-8-x86_64/postgresql13-contrib-13.2-1PGDG.rhel8.x86_64.rpm 
+        state: present
+        disable_gpg_check: true
+
+    - name: install postgresql13-devel
+      dnf:
+        name: https://download.postgresql.org/pub/repos/yum/13/redhat/rhel-8-x86_64/postgresql13-devel-13.2-1PGDG.rhel8.x86_64.rpm
+        state: present
+        disable_gpg_check: true
+
+    - name: install postgresql13-docs
+      dnf:
+        name: https://download.postgresql.org/pub/repos/yum/13/redhat/rhel-8-x86_64/postgresql13-docs-13.2-1PGDG.rhel8.x86_64.rpm
+        state: present
+        disable_gpg_check: true
+
+    - name: install postgresql13-llvmjit
+      dnf:
+        name: https://download.postgresql.org/pub/repos/yum/13/redhat/rhel-8-x86_64/postgresql13-llvmjit-13.2-1PGDG.rhel8.x86_64.rpm
+        state: present
+        disable_gpg_check: true
+
+    - name: install postgresql13-odbc
+      dnf:
+        name: https://download.postgresql.org/pub/repos/yum/13/redhat/rhel-8-x86_64/postgresql13-odbc-13.02.0000-1PGDG.rhel8.x86_64.rpm
+        state: present
+        disable_gpg_check: true
+
+    - name: install postgresql13-plperl
+      dnf:
+        name: https://download.postgresql.org/pub/repos/yum/13/redhat/rhel-8-x86_64/postgresql13-plperl-13.2-1PGDG.rhel8.x86_64.rpm
+        state: present
+        disable_gpg_check: true
+
+    - name: install postgresql13-plpython3
+      dnf:
+        name: https://download.postgresql.org/pub/repos/yum/13/redhat/rhel-8-x86_64/postgresql13-plpython3-13.2-1PGDG.rhel8.x86_64.rpm
+        state: present
+        disable_gpg_check: true
+
+    - name: install postgresql13-pltcl
+      dnf:
+        name: https://download.postgresql.org/pub/repos/yum/13/redhat/rhel-8-x86_64/postgresql13-pltcl-13.2-1PGDG.rhel8.x86_64.rpm
+        state: present
+        disable_gpg_check: true
+
+    - name: install postgresql13-test
+      dnf:
+        name: https://download.postgresql.org/pub/repos/yum/13/redhat/rhel-8-x86_64/postgresql13-test-13.2-1PGDG.rhel8.x86_64.rpm
+        state: present
+        disable_gpg_check: true
 
     - name: initialize the postgresql database
+      become: true
+      become_user: root
+      become_method: sudo
       command: /usr/pgsql-13/bin/postgresql-13-setup initdb
       notify:
         - start postgres service
@@ -48,7 +114,7 @@
 
     - name: update the postgressql admin user password
       become_user: postgres
-      command: psql -c "alter user postgres with password '{postgres_user_password}'"
+      command: psql -c "alter user postgres with password '{{ postgres_user_password }}'"
 
     - name: set the listen address on the server
       become_user: postgres
@@ -59,7 +125,7 @@
 
     - name: allow remote connections
       become_user: postgres
-      postgresql_pg_hba:
+      community.postgresql.postgresql_pg_hba:
         dest: /var/lib/postgres/data/pg_hba.conf
         backup: yes
         group: postgres

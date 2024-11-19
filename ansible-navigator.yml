@@ -1,9 +1,8 @@
 ---
-
 ansible-navigator:
   ansible:
     config:
-      path: ansible.cfg
-    inventories:
+      path: ./ansible.cfg
+    inventory:
       entries:
-      - inventory
+      - ./inventory
