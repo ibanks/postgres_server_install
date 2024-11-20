@@ -64,16 +64,23 @@
         enabled: true
         masked: no
 
-    - name: update the postgressql admin user password
-      become_user: postgres
-      command: psql -c "alter user postgres with password '{{ postgres_user_password }}'"
-
     - name: set the listen address on the server
       become_user: postgres
       lineinfile:
         path: /etc/postgresql/13/main/postgresql.conf
         regexp: '^listen_addresses'
-        line: 'listen_addresses = "*"'
+        line: "listen_addresses = '*'"
+
+    - name: allow local connections
+      become_user: postgres
+      community.postgresql.postgresql_pg_hba:
+        dest: /etc/postgresql/13/main/pg_hba.conf
+        backup: yes
+        group: postgres
+        owner: postgres
+        contype: "local"
+        databases: all
+        method: trust
 
     - name: allow remote connections
       become_user: postgres
@@ -84,6 +91,20 @@
         owner: postgres
         address: samenet
         method: peer
+
+    - name: restart postgressql service
+      systemd:
+        name: postgresql
+        state: restarted
+
+    - name: ensure postgres service is running
+      systemd:
+        name: postgresql
+        state: started
+
+    - name: update the postgressql admin user password
+      become_user: postgres
+      command: psql -c "alter user postgres with password '{{ postgres_user_password }}'"
 
     - name: give permissions to gnuhealth user
       command: postgres -c "createuser --createdb --no-createrole --no-superuser gnuhealth"
