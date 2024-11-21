@@ -102,12 +102,20 @@
         name: postgresql
         state: started
 
-    - name: update the postgressql admin user password
-      become_user: postgres
-      command: psql -c "alter user postgres with password '{{ postgres_user_password }}'"
+    - name: update the postgresql admin user password
+      community.postgresql.postgresql_user:
+        name: postgres
+        password: "{{ postgres_user_password }}"
+
+    - name: create gnuhealth db role
+      community.postgresql.postgresql_user:
+        name: gnuhealth
+        state: present
 
     - name: give permissions to gnuhealth user
-      command: postgres -c "createuser --createdb --no-createrole --no-superuser gnuhealth"
+      community.postgresql.postgresql_privs:
+        roles: gnuhealth
+        privs: ALL
 
     - name: restart postgressql service
       systemd:
